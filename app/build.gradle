@@ -1,0 +1,53 @@
+
+
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 22
+    buildToolsVersion "24.0.0"
+    defaultConfig {
+        applicationId "com.example.liujiechao.myapp"
+        minSdkVersion 22
+        targetSdkVersion 22
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    provided fileTree(include: ['*.jar'], dir: 'system_libraries')
+    compile fileTree(include: ['*.jar'], dir: 'libs')
+    testCompile 'junit:junit:4.12'
+}
+
+task pushDownJdkDependency {
+    def imlFile = file("app.iml")
+    try {
+        def parsedXml = (new XmlParser()).parse(imlFile)
+        def jdkNode = parsedXml.component[1].orderEntry.find { it.'@type' == 'jdk' }
+        if(jdkNode != null) {
+            parsedXml.component[1].remove(jdkNode)
+        }
+        new Node(parsedXml.component[1], 'orderEntry', ['type': 'jdk', 'jdkName': "Android API 22 Platform", 'jdkType': 'Android SDK'])
+        def writer = new StringWriter()
+        new XmlNodePrinter(new PrintWriter(writer)).print(parsedXml)
+        imlFile.text = writer.toString()
+    } catch (FileNotFoundException e) {
+        println 'file not fount '
+        // nop, iml not found
+    }
+}
+
+gradle.projectsEvaluated {
+    preBuild.dependsOn('pushDownJdkDependency')
+    tasks.withType(JavaCompile) {
+        options.compilerArgs.add('-Xbootclasspath/p:app/system_libraries/framework.jar')
+    }
+}
